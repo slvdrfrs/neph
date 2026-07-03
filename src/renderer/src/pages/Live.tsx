@@ -20,6 +20,7 @@ function FormCell({ s }: { s: LiveStats }): JSX.Element {
         {hasWr ? (
           <span className={wrClass} title={`Sobre ${s.wrGames} competitivas`}>
             {s.winrate}% WR
+            {s.wrGames < 10 && <span className="form-dim"> ({s.wrGames})</span>}
           </span>
         ) : (
           <span className="form-dim">— WR</span>
