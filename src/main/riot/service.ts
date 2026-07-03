@@ -570,13 +570,27 @@ export class TrackerService {
         })
       }
     } catch {
-      // Sin datos: anota el intento (con TTL) solo si el juego sigue abierto
+      // Falló (p. ej. rate limit persistente): conserva lo que hubiera y
+      // marca la entrada para reintentar en ~45 s, no en 10 min
       if (this.remote) {
-        if (needWr && !this.wrCache.has(puuid)) {
-          this.wrCache.set(puuid, { at: Date.now(), winrate: null, games: 0 })
+        const retryAt = Date.now() - STATS_TTL_MS + 45_000
+        if (needWr) {
+          const prev = this.wrCache.get(puuid)
+          this.wrCache.set(puuid, {
+            at: retryAt,
+            winrate: prev?.winrate ?? null,
+            games: prev?.games ?? 0
+          })
         }
-        if (needForm && !this.formCache.has(puuid)) {
-          this.formCache.set(puuid, { at: Date.now(), kd: null, hsPct: null, adr: null, games: 0 })
+        if (needForm) {
+          const prev = this.formCache.get(puuid)
+          this.formCache.set(puuid, {
+            at: retryAt,
+            kd: prev?.kd ?? null,
+            hsPct: prev?.hsPct ?? null,
+            adr: prev?.adr ?? null,
+            games: prev?.games ?? 0
+          })
         }
       }
     } finally {
@@ -680,7 +694,8 @@ export class TrackerService {
     const puuids = entries.map((e) => e.puuid)
     const names = await this.resolveNames(puuids)
     const parties = this.partyIndexes(presences, new Set(puuids))
-    const ranks = await pool(puuids, 4, (p) => this.getRank(p))
+    // Concurrencia moderada: una ráfaga fuerte aquí provoca 429 en cadena
+    const ranks = await pool(puuids, 3, (p) => this.getRank(p))
     const rankByPuuid = new Map(puuids.map((p, i) => [p, ranks[i]]))
 
     const selfTeam = entries.find((e) => e.puuid === selfPuuid)?.teamId ?? null
@@ -719,13 +734,15 @@ export class TrackerService {
     selfPuuid: string,
     presences: Presence[]
   ): Promise<LiveMatch> {
-    // Reutiliza los datos si es la misma partida y son recientes (<30 s)
+    // Reutiliza los datos si es la misma partida y son recientes (<30 s),
+    // pero sigue reprogramando stats pendientes (reintentos tras un fallo)
     if (
       this.lastMatchId === matchId &&
       this.lastLive &&
       Date.now() - this.snapshot.updatedAt < 30_000 &&
       this.snapshot.state === 'ingame'
     ) {
+      this.scheduleStats(this.lastLive.players.map((p) => p.puuid))
       return this.lastLive
     }
 

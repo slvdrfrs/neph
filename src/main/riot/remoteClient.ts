@@ -133,13 +133,13 @@ export class RemoteClient {
     }
   }
 
-  /** GET con reintento ante rate limit (429): espera creciente, hasta 2 reintentos. */
+  /** GET con reintento ante rate limit (429): espera exponencial, hasta 3 reintentos. */
   private async get<T>(url: string, attempt = 0): Promise<T> {
     try {
       return await requestJson<T>(url, { headers: this.headers() })
     } catch (e) {
-      if (e instanceof HttpError && e.status === 429 && attempt < 2) {
-        await sleep(2500 * (attempt + 1) + Math.floor(Math.random() * 500))
+      if (e instanceof HttpError && e.status === 429 && attempt < 3) {
+        await sleep(2500 * 2 ** attempt + Math.floor(Math.random() * 500))
         return this.get(url, attempt + 1)
       }
       throw e
