@@ -7,8 +7,6 @@ import type {
 } from '../../../shared/types'
 import { RankBadge } from '../components/RankBadge'
 
-const PARTY_COLORS = ['#ff4655', '#3fd0c9', '#f0b232', '#a06bff', '#57cbde', '#8ce563']
-
 function timeAgo(ms: number): string {
   if (!ms) return ''
   const min = Math.round((Date.now() - ms) / 60000)
@@ -82,39 +80,6 @@ function PlayerRow({ p }: { p: LivePlayer }): JSX.Element {
           <span className="player-name">{p.name}</span>
           {p.tag && <span className="player-tag">#{p.tag}</span>}
           {p.isSelf && <span className="badge-self">tú</span>}
-          {p.lastMeeting && (
-            <span
-              className={`meet-icon ${p.lastMeeting.enemy ? 'vs' : 'with'}`}
-              title={meetingTitle(p.lastMeeting)}
-            >
-              {p.lastMeeting.enemy ? (
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.4"
-                  strokeLinecap="round"
-                >
-                  <path d="M5 5l14 14M19 5L5 19" />
-                </svg>
-              ) : (
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M12 3l7 3v5c0 4.6-3 7.7-7 9-4-1.3-7-4.4-7-9V6z" />
-                </svg>
-              )}
-            </span>
-          )}
         </div>
         <div className="player-sub">{p.agentName ?? 'Sin agente'}</div>
       </td>
@@ -135,16 +100,39 @@ function PlayerRow({ p }: { p: LivePlayer }): JSX.Element {
       <td className="cell-level">
         {p.level > 0 ? p.level : <span title="Nivel oculto">—</span>}
       </td>
-      <td className="cell-party">
-        {p.partyIndex !== null && (
+      <td className="cell-meet">
+        {p.lastMeeting && (
           <span
-            className="party-dot"
-            title={`Grupo ${p.partyIndex}`}
-            style={{
-              background: PARTY_COLORS[(p.partyIndex - 1) % PARTY_COLORS.length],
-              color: PARTY_COLORS[(p.partyIndex - 1) % PARTY_COLORS.length]
-            }}
-          />
+            className={`meet-icon ${p.lastMeeting.enemy ? 'vs' : 'with'}`}
+            title={meetingTitle(p.lastMeeting)}
+          >
+            {p.lastMeeting.enemy ? (
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.4"
+                strokeLinecap="round"
+              >
+                <path d="M5 5l14 14M19 5L5 19" />
+              </svg>
+            ) : (
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M12 3l7 3v5c0 4.6-3 7.7-7 9-4-1.3-7-4.4-7-9V6z" />
+              </svg>
+            )}
+          </span>
         )}
       </td>
     </tr>
@@ -185,7 +173,7 @@ function TeamTable({
               Forma
             </th>
             <th>Nivel</th>
-            <th></th>
+            <th title="Cruces previos: escudo = jugó contigo, aspas = contra ti">Visto</th>
           </tr>
         </thead>
         <tbody>
