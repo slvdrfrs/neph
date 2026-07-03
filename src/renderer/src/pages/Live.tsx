@@ -1,7 +1,29 @@
-import type { LivePlayer, LiveStats, RankInfo, Snapshot } from '../../../shared/types'
+import type {
+  LastMeeting,
+  LivePlayer,
+  LiveStats,
+  RankInfo,
+  Snapshot
+} from '../../../shared/types'
 import { RankBadge } from '../components/RankBadge'
 
 const PARTY_COLORS = ['#ff4655', '#3fd0c9', '#f0b232', '#a06bff', '#57cbde', '#8ce563']
+
+function timeAgo(ms: number): string {
+  if (!ms) return ''
+  const min = Math.round((Date.now() - ms) / 60000)
+  if (min < 60) return `hace ${min} min`
+  const h = Math.round(min / 60)
+  if (h < 24) return `hace ${h} h`
+  const days = Math.round(h / 24)
+  return days === 1 ? 'ayer' : `hace ${days} días`
+}
+
+function meetingTitle(m: LastMeeting): string {
+  const base = m.enemy ? 'Jugaste contra él' : 'Jugó en tu equipo'
+  const result = m.won === null ? '' : m.won ? ' · ganaste' : ' · perdiste'
+  return `${base} ${timeAgo(m.startedAt)}${result}`
+}
 
 function FormCell({ s }: { s: LiveStats }): JSX.Element {
   const hasWr = s.winrate !== null
@@ -63,6 +85,14 @@ function PlayerRow({ p }: { p: LivePlayer }): JSX.Element {
           {p.incognito && (
             <span className="badge-incognito" title="Este jugador juega en modo incógnito">
               oculto
+            </span>
+          )}
+          {p.lastMeeting && (
+            <span
+              className={`badge-meet ${p.lastMeeting.enemy ? 'vs' : 'with'}`}
+              title={meetingTitle(p.lastMeeting)}
+            >
+              {p.lastMeeting.enemy ? 'contra ti' : 'contigo'}
             </span>
           )}
         </div>

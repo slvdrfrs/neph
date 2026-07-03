@@ -13,6 +13,7 @@ import type {
   LivePlayer,
   LiveMatch,
   LiveStats,
+  LastMeeting,
   RankInfo,
   SelfInfo,
   HistoryItem,
@@ -133,6 +134,11 @@ export class TrackerService {
   >()
   private statsInFlight = new Set<string>()
   private statsChain: Promise<unknown> = Promise.resolve()
+
+  /** puuid → último cruce en tus partidas recientes */
+  private encounters = new Map<string, LastMeeting>()
+  private encountersAt = 0
+  private encountersLoading = false
 
   start(onUpdate: (s: Snapshot) => void): void {
     this.onUpdate = onUpdate
@@ -579,6 +585,69 @@ export class TrackerService {
     }
   }
 
+  /** Reconstruye el índice de jugadores vistos en tus últimas 15 partidas. */
+  private scheduleEncounters(selfPuuid: string): void {
+    if (this.encountersLoading || Date.now() - this.encountersAt < STATS_TTL_MS) return
+    this.encountersLoading = true
+    void this.hydrateEncounters(selfPuuid)
+  }
+
+  private async hydrateEncounters(selfPuuid: string): Promise<void> {
+    try {
+      const history = await this.enqueueStats(() =>
+        this.remote!.getMatchHistory(selfPuuid, 15)
+      )
+      const fresh = new Map<string, LastMeeting>()
+      for (const entry of history.History ?? []) {
+        let details = this.detailsCache.get(entry.MatchID)
+        if (!details) {
+          details = await this.enqueueStats(() =>
+            this.remote!.getMatchDetails(entry.MatchID)
+          )
+          this.detailsCache.set(entry.MatchID, details)
+          this.trimDetailsCache()
+        }
+        const info = details['matchInfo'] as Record<string, unknown> | undefined
+        const players = (details['players'] as Array<Record<string, unknown>>) ?? []
+        const teams = (details['teams'] as Array<Record<string, unknown>>) ?? []
+        const me = players.find((p) => p['subject'] === selfPuuid)
+        if (!me || !info) continue
+        const myTeam = me['teamId'] as string
+        const isDm = (info['queueID'] as string) === 'deathmatch'
+        const myWon = isDm
+          ? null
+          : ((teams.find((t) => t['teamId'] === myTeam)?.['won'] as boolean) ?? null)
+        const startedAt = (info['gameStartMillis'] as number) ?? 0
+        for (const p of players) {
+          const sub = p['subject'] as string
+          // El historial viene del más reciente al más antiguo: nos quedamos
+          // con el primer cruce que aparezca (el último en el tiempo)
+          if (sub === selfPuuid || fresh.has(sub)) continue
+          fresh.set(sub, {
+            enemy: isDm ? true : (p['teamId'] as string) !== myTeam,
+            startedAt,
+            won: myWon
+          })
+        }
+      }
+      this.encounters = fresh
+      this.encountersAt = Date.now()
+
+      // Refresca la partida en vivo si la hay
+      const live = this.snapshot.live
+      if (live) {
+        for (const p of live.players) {
+          if (!p.isSelf) p.lastMeeting = this.encounters.get(p.puuid) ?? null
+        }
+        this.onUpdate?.(this.snapshot)
+      }
+    } catch {
+      // Se reintentará en el próximo ciclo
+    } finally {
+      this.encountersLoading = false
+    }
+  }
+
   /** Evita que la caché de detalles crezca sin límite (son objetos grandes). */
   private trimDetailsCache(): void {
     if (this.detailsCache.size <= 300) return
@@ -638,7 +707,9 @@ export class TrackerService {
         incognito: e.identity?.Incognito ?? false,
         partyIndex: parties.get(e.puuid) ?? null,
         isSelf: e.puuid === selfPuuid,
-        stats: this.liveStatsFor(e.puuid)
+        stats: this.liveStatsFor(e.puuid),
+        lastMeeting:
+          e.puuid === selfPuuid ? null : this.encounters.get(e.puuid) ?? null
       }
     })
   }
@@ -686,6 +757,7 @@ export class TrackerService {
     this.lastMatchId = matchId
     this.lastLive = live
     this.scheduleStats(players.map((p) => p.puuid))
+    this.scheduleEncounters(selfPuuid)
     return live
   }
 
@@ -723,6 +795,7 @@ export class TrackerService {
       enemyAvg: this.teamAvg(players.filter((p) => p.enemy))
     }
     this.scheduleStats(players.map((p) => p.puuid))
+    this.scheduleEncounters(selfPuuid)
     return live
   }
 

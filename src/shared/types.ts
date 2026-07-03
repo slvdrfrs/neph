@@ -27,6 +27,15 @@ export interface LiveStats {
   loading: boolean
 }
 
+/** Último cruce con este jugador en tus partidas recientes */
+export interface LastMeeting {
+  /** true = aquella vez estaba en el equipo enemigo */
+  enemy: boolean
+  startedAt: number
+  /** Resultado para ti (null = empate o modo sin equipos) */
+  won: boolean | null
+}
+
 export interface LivePlayer {
   puuid: string
   name: string
@@ -45,6 +54,8 @@ export interface LivePlayer {
   partyIndex: number | null
   isSelf: boolean
   stats: LiveStats
+  /** null = primera vez que te lo cruzas (en tus últimas ~15 partidas) */
+  lastMeeting: LastMeeting | null
 }
 
 export interface LiveMatch {
