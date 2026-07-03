@@ -12,14 +12,14 @@ function createWindow(): void {
     minWidth: 960,
     minHeight: 620,
     show: false,
-    backgroundColor: '#0a0a0b',
+    backgroundColor: '#111113',
     autoHideMenuBar: true,
     title: 'NEPH.GG',
     // Sin barra de título de Windows: la app dibuja la suya y los botones
-    // nativos (min/max/cerrar) se pintan oscuros encima
+    // nativos (min/max/cerrar) se pintan del color del marco (--chrome)
     titleBarStyle: 'hidden',
     titleBarOverlay: {
-      color: '#0a0a0b',
+      color: '#111113',
       symbolColor: '#8a8f98',
       height: 34
     },
