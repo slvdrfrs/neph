@@ -90,16 +90,13 @@ body {
   height: 100vh;
 }
 
-/* Franja de arrastre invisible en la parte superior (ventana sin marco).
-   Los botones nativos de Windows se dibujan encima, a la derecha. */
+/* Franja de arrastre en la parte superior (ventana sin marco). Ocupa espacio
+   real para que el contenido nunca quede debajo de los botones nativos de
+   Windows, pero es invisible: sin borde ni fondo. */
 .titlebar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
   height: 34px;
+  min-height: 34px;
   -webkit-app-region: drag;
-  z-index: 50;
 }
 
 .app {
