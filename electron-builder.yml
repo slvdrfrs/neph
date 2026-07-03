@@ -1,0 +1,16 @@
+appId: com.slvdr.nephgg
+productName: NEPH.GG
+directories:
+  output: dist
+files:
+  - out/**
+  - package.json
+win:
+  icon: resources/icon.png
+  target:
+    - nsis
+    - portable
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
