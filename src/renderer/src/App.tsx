@@ -143,17 +143,20 @@ export default function App(): JSX.Element {
           </div>
         </aside>
 
-        <main className="content">
-          {snapshot.error && (
-            <div className="error-banner" title={snapshot.error}>
-              Error de conexión: {snapshot.error}
+        <main className="main-col">
+          <div className="main-top" aria-hidden="true" />
+          <div className="content">
+            {snapshot.error && (
+              <div className="error-banner" title={snapshot.error}>
+                Error de conexión: {snapshot.error}
+              </div>
+            )}
+            <div className="page" key={tab}>
+              {tab === 'live' && <LivePage snapshot={snapshot} />}
+              {tab === 'history' && <HistoryPage snapshot={snapshot} />}
+              {tab === 'profile' && <ProfilePage snapshot={snapshot} />}
+              {tab === 'settings' && <SettingsPage />}
             </div>
-          )}
-          <div className="page" key={tab}>
-            {tab === 'live' && <LivePage snapshot={snapshot} />}
-            {tab === 'history' && <HistoryPage snapshot={snapshot} />}
-            {tab === 'profile' && <ProfilePage snapshot={snapshot} />}
-            {tab === 'settings' && <SettingsPage />}
           </div>
         </main>
       </div>

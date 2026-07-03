@@ -90,13 +90,18 @@ body {
   height: 100vh;
 }
 
-/* Franja de arrastre en la parte superior (ventana sin marco). Ocupa espacio
-   real para que el contenido nunca quede debajo de los botones nativos de
-   Windows, pero es invisible: sin borde ni fondo. */
+/* Franja de arrastre superpuesta en la parte superior (ventana sin marco).
+   No ocupa espacio: el sidebar llega hasta arriba del todo (estilo Discord)
+   y el hueco para los botones nativos se reserva dentro de la columna de
+   contenido con .main-top. */
 .titlebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
   height: 34px;
-  min-height: 34px;
   -webkit-app-region: drag;
+  z-index: 50;
 }
 
 .app {
@@ -104,6 +109,18 @@ body {
   flex: 1;
   min-height: 0;
   position: relative;
+}
+
+.main-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.main-top {
+  height: 34px;
+  min-height: 34px;
 }
 
 /* Glow ambiental sutil en la parte superior */
@@ -384,7 +401,7 @@ body {
 .content {
   flex: 1;
   overflow-y: auto;
-  padding: 22px 36px 26px;
+  padding: 6px 36px 26px;
   position: relative;
   z-index: 1;
 }
