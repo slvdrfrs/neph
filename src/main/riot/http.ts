@@ -9,6 +9,9 @@ export interface RequestOptions {
   timeoutMs?: number
 }
 
+export const sleep = (ms: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, ms))
+
 export class HttpError extends Error {
   constructor(
     public status: number,

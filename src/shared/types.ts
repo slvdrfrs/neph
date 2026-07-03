@@ -9,6 +9,24 @@ export interface RankInfo {
   rr: number
 }
 
+/** Forma reciente de un jugador (se carga progresivamente) */
+export interface LiveStats {
+  /** % de victorias en las últimas partidas competitivas (hasta 20) */
+  winrate: number | null
+  /** Tamaño de la muestra del winrate */
+  wrGames: number
+  /** KD sobre las últimas partidas analizadas */
+  kd: number | null
+  /** % de headshots */
+  hsPct: number | null
+  /** Daño medio por ronda */
+  adr: number | null
+  /** Partidas usadas para KD/HS/ADR */
+  statsGames: number
+  /** true = aún se están descargando datos */
+  loading: boolean
+}
+
 export interface LivePlayer {
   puuid: string
   name: string
@@ -26,6 +44,7 @@ export interface LivePlayer {
   /** Índice de grupo (party). null = va solo o desconocido */
   partyIndex: number | null
   isSelf: boolean
+  stats: LiveStats
 }
 
 export interface LiveMatch {

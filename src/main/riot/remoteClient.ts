@@ -1,4 +1,4 @@
-import { requestJson, HttpError } from './http'
+import { requestJson, HttpError, sleep } from './http'
 import type { Tokens } from './localClient'
 import type { RegionInfo } from './region'
 
@@ -133,8 +133,17 @@ export class RemoteClient {
     }
   }
 
-  private get<T>(url: string): Promise<T> {
-    return requestJson<T>(url, { headers: this.headers() })
+  /** GET con reintento ante rate limit (429): espera creciente, hasta 2 reintentos. */
+  private async get<T>(url: string, attempt = 0): Promise<T> {
+    try {
+      return await requestJson<T>(url, { headers: this.headers() })
+    } catch (e) {
+      if (e instanceof HttpError && e.status === 429 && attempt < 2) {
+        await sleep(2500 * (attempt + 1) + Math.floor(Math.random() * 500))
+        return this.get(url, attempt + 1)
+      }
+      throw e
+    }
   }
 
   /** Lista de temporadas (episodios y actos) en orden cronológico. */

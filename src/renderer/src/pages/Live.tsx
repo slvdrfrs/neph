@@ -1,7 +1,40 @@
-import type { LivePlayer, RankInfo, Snapshot } from '../../../shared/types'
+import type { LivePlayer, LiveStats, RankInfo, Snapshot } from '../../../shared/types'
 import { RankBadge } from '../components/RankBadge'
 
 const PARTY_COLORS = ['#ff4655', '#3fd0c9', '#f0b232', '#a06bff', '#57cbde', '#8ce563']
+
+function FormCell({ s }: { s: LiveStats }): JSX.Element {
+  const hasWr = s.winrate !== null
+  const hasForm = s.kd !== null || s.hsPct !== null || s.adr !== null
+  if (!hasWr && !hasForm) {
+    return s.loading ? (
+      <span className="form-loading">···</span>
+    ) : (
+      <span className="prev-none">—</span>
+    )
+  }
+  const wrClass = !hasWr ? '' : s.winrate! >= 55 ? 'wr-good' : s.winrate! <= 45 ? 'wr-bad' : ''
+  return (
+    <div className="form-cell">
+      <div className="form-line">
+        {hasWr ? (
+          <span className={wrClass} title={`Sobre ${s.wrGames} competitivas`}>
+            {s.winrate}% WR
+          </span>
+        ) : (
+          <span className="form-dim">— WR</span>
+        )}
+        {s.kd !== null && <span className="form-dim"> · KD {s.kd.toFixed(2)}</span>}
+      </div>
+      <div className="form-line form-sub">
+        {s.hsPct !== null && <span>HS {s.hsPct}%</span>}
+        {s.hsPct !== null && s.adr !== null && <span> · </span>}
+        {s.adr !== null && <span>ADR {s.adr}</span>}
+        {s.loading && <span> ···</span>}
+      </div>
+    </div>
+  )
+}
 
 function PlayerRow({ p }: { p: LivePlayer }): JSX.Element {
   // Progreso hacia el siguiente rango (Inmortal+ no tiene tope de 100 RR)
@@ -44,6 +77,9 @@ function PlayerRow({ p }: { p: LivePlayer }): JSX.Element {
       </td>
       <td className="cell-peak">
         <RankBadge rank={p.peak} showRR={false} />
+      </td>
+      <td className="cell-form">
+        <FormCell s={p.stats} />
       </td>
       <td className="cell-level">
         {p.level > 0 ? p.level : <span title="Nivel oculto">—</span>}
@@ -94,6 +130,9 @@ function TeamTable({
             <th>Jugador</th>
             <th>Rango</th>
             <th>Máximo</th>
+            <th title="Winrate: últimas 20 competitivas · KD/HS/ADR: últimas 5 partidas">
+              Forma
+            </th>
             <th>Nivel</th>
             <th></th>
           </tr>

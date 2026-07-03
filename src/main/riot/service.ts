@@ -7,10 +7,12 @@ import {
   type PlayerIdentity
 } from './remoteClient'
 import { StaticData, queueName } from './staticData'
+import { sleep } from './http'
 import type {
   Snapshot,
   LivePlayer,
   LiveMatch,
+  LiveStats,
   RankInfo,
   SelfInfo,
   HistoryItem,
@@ -20,6 +22,13 @@ import type {
 
 const POLL_MS = 5000
 const MMR_CACHE_MS = 90_000
+const STATS_TTL_MS = 600_000
+/** Espaciado entre peticiones de stats: ~65/min como máximo absoluto */
+const STATS_GAP_MS = 900
+/** Partidas analizadas por jugador para KD/HS/ADR */
+const STATS_MATCHES = 5
+/** Modos válidos para calcular KD/HS/ADR (fuera deathmatch y modos raros) */
+const STAT_QUEUES = new Set(['competitive', 'unrated', 'swiftplay', 'premier'])
 
 interface CachedMMR {
   at: number
@@ -43,6 +52,50 @@ async function pool<T, R>(
   })
   await Promise.all(workers)
   return results
+}
+
+interface MatchPlayerStats {
+  kills: number
+  deaths: number
+  rounds: number
+  damage: number
+  headshots: number
+  totalShots: number
+}
+
+/** Extrae kills/deaths, daño y precisión de un jugador desde los detalles de partida. */
+function parseMatchStats(
+  details: Record<string, unknown>,
+  puuid: string
+): MatchPlayerStats | null {
+  const players = (details['players'] as Array<Record<string, unknown>>) ?? []
+  const me = players.find((p) => p['subject'] === puuid)
+  if (!me) return null
+  const stats = (me['stats'] as Record<string, number>) ?? {}
+
+  let damage = 0
+  let headshots = 0
+  let totalShots = 0
+  const rounds = (details['roundResults'] as Array<Record<string, unknown>>) ?? []
+  for (const round of rounds) {
+    const playerStats = (round['playerStats'] as Array<Record<string, unknown>>) ?? []
+    const mine = playerStats.find((p) => p['subject'] === puuid)
+    if (!mine) continue
+    for (const d of (mine['damage'] as Array<Record<string, number>>) ?? []) {
+      damage += d['damage'] ?? 0
+      headshots += d['headshots'] ?? 0
+      totalShots += (d['headshots'] ?? 0) + (d['bodyshots'] ?? 0) + (d['legshots'] ?? 0)
+    }
+  }
+
+  return {
+    kills: stats['kills'] ?? 0,
+    deaths: stats['deaths'] ?? 0,
+    rounds: rounds.length || (stats['roundsPlayed'] ?? 0),
+    damage,
+    headshots,
+    totalShots
+  }
 }
 
 export class TrackerService {
@@ -72,6 +125,14 @@ export class TrackerService {
   private detailsCache = new Map<string, Record<string, unknown>>()
   private lastMatchId: string | null = null
   private lastLive: LiveMatch | null = null
+
+  private wrCache = new Map<string, { at: number; winrate: number | null; games: number }>()
+  private formCache = new Map<
+    string,
+    { at: number; kd: number | null; hsPct: number | null; adr: number | null; games: number }
+  >()
+  private statsInFlight = new Set<string>()
+  private statsChain: Promise<unknown> = Promise.resolve()
 
   start(onUpdate: (s: Snapshot) => void): void {
     this.onUpdate = onUpdate
@@ -379,6 +440,152 @@ export class TrackerService {
     }
   }
 
+  // --------------------------------------------------------- stats en vivo --
+
+  /**
+   * Cola serializada con espaciado fijo: todas las peticiones de stats pasan
+   * por aquí para no exceder el rate limit de Riot (~60/min).
+   */
+  private enqueueStats<T>(fn: () => Promise<T>): Promise<T> {
+    const run = this.statsChain.then(async () => {
+      const result = await fn()
+      await sleep(STATS_GAP_MS)
+      return result
+    })
+    this.statsChain = run.catch(() => undefined)
+    return run
+  }
+
+  /** Forma actual de un jugador a partir de las cachés. */
+  private liveStatsFor(puuid: string): LiveStats {
+    const now = Date.now()
+    const wr = this.wrCache.get(puuid)
+    const form = this.formCache.get(puuid)
+    const wrFresh = wr !== undefined && now - wr.at < STATS_TTL_MS
+    const formFresh = form !== undefined && now - form.at < STATS_TTL_MS
+    return {
+      winrate: wrFresh ? wr.winrate : null,
+      wrGames: wrFresh ? wr.games : 0,
+      kd: formFresh ? form.kd : null,
+      hsPct: formFresh ? form.hsPct : null,
+      adr: formFresh ? form.adr : null,
+      statsGames: formFresh ? form.games : 0,
+      loading: !wrFresh || !formFresh
+    }
+  }
+
+  /** Actualiza las stats de un jugador en el snapshot actual y notifica a la UI. */
+  private pushLiveStats(puuid: string): void {
+    const live = this.snapshot.live
+    if (!live) return
+    const player = live.players.find((p) => p.puuid === puuid)
+    if (!player) return
+    player.stats = this.liveStatsFor(puuid)
+    this.onUpdate?.(this.snapshot)
+  }
+
+  /** Lanza en segundo plano la descarga de stats de los jugadores que falten. */
+  private scheduleStats(puuids: string[]): void {
+    const now = Date.now()
+    for (const puuid of puuids) {
+      const wr = this.wrCache.get(puuid)
+      const form = this.formCache.get(puuid)
+      const wrFresh = wr !== undefined && now - wr.at < STATS_TTL_MS
+      const formFresh = form !== undefined && now - form.at < STATS_TTL_MS
+      if ((wrFresh && formFresh) || this.statsInFlight.has(puuid)) continue
+      this.statsInFlight.add(puuid)
+      void this.hydratePlayerStats(puuid, !wrFresh, !formFresh)
+    }
+  }
+
+  private async hydratePlayerStats(
+    puuid: string,
+    needWr: boolean,
+    needForm: boolean
+  ): Promise<void> {
+    try {
+      if (needWr) {
+        const updates = await this.enqueueStats(() =>
+          this.remote!.getCompetitiveUpdates(puuid, 20)
+        )
+        let wins = 0
+        let losses = 0
+        for (const m of updates.Matches ?? []) {
+          if (m.RankedRatingEarned > 0) wins++
+          else if (m.RankedRatingEarned < 0) losses++
+        }
+        const games = wins + losses
+        this.wrCache.set(puuid, {
+          at: Date.now(),
+          winrate: games > 0 ? Math.round((wins / games) * 100) : null,
+          games
+        })
+        this.pushLiveStats(puuid)
+      }
+
+      if (needForm) {
+        const history = await this.enqueueStats(() =>
+          this.remote!.getMatchHistory(puuid, 15)
+        )
+        const entries = (history.History ?? [])
+          .filter((e) => STAT_QUEUES.has(e.QueueID))
+          .slice(0, STATS_MATCHES)
+
+        const agg = { kills: 0, deaths: 0, rounds: 0, dmg: 0, hs: 0, shots: 0, games: 0 }
+        for (const entry of entries) {
+          let details = this.detailsCache.get(entry.MatchID)
+          if (!details) {
+            details = await this.enqueueStats(() =>
+              this.remote!.getMatchDetails(entry.MatchID)
+            )
+            this.detailsCache.set(entry.MatchID, details)
+            this.trimDetailsCache()
+          }
+          const s = parseMatchStats(details, puuid)
+          if (!s) continue
+          agg.kills += s.kills
+          agg.deaths += s.deaths
+          agg.rounds += s.rounds
+          agg.dmg += s.damage
+          agg.hs += s.headshots
+          agg.shots += s.totalShots
+          agg.games++
+        }
+
+        this.formCache.set(puuid, {
+          at: Date.now(),
+          kd:
+            agg.games > 0
+              ? Math.round((agg.kills / Math.max(agg.deaths, 1)) * 100) / 100
+              : null,
+          hsPct: agg.shots > 0 ? Math.round((agg.hs / agg.shots) * 100) : null,
+          adr: agg.rounds > 0 ? Math.round(agg.dmg / agg.rounds) : null,
+          games: agg.games
+        })
+      }
+    } catch {
+      // Sin datos: anota el intento (con TTL) solo si el juego sigue abierto
+      if (this.remote) {
+        if (needWr && !this.wrCache.has(puuid)) {
+          this.wrCache.set(puuid, { at: Date.now(), winrate: null, games: 0 })
+        }
+        if (needForm && !this.formCache.has(puuid)) {
+          this.formCache.set(puuid, { at: Date.now(), kd: null, hsPct: null, adr: null, games: 0 })
+        }
+      }
+    } finally {
+      this.statsInFlight.delete(puuid)
+      this.pushLiveStats(puuid)
+    }
+  }
+
+  /** Evita que la caché de detalles crezca sin límite (son objetos grandes). */
+  private trimDetailsCache(): void {
+    if (this.detailsCache.size <= 300) return
+    const oldest = this.detailsCache.keys().next().value
+    if (oldest !== undefined) this.detailsCache.delete(oldest)
+  }
+
   /** Rango medio de un grupo de jugadores (ignora a los sin clasificar). */
   private teamAvg(players: LivePlayer[]): RankInfo | null {
     const ranked = players.filter((p) => p.rank.tier > 0)
@@ -430,7 +637,8 @@ export class TrackerService {
         hideLevel: e.identity?.HideAccountLevel ?? false,
         incognito: e.identity?.Incognito ?? false,
         partyIndex: parties.get(e.puuid) ?? null,
-        isSelf: e.puuid === selfPuuid
+        isSelf: e.puuid === selfPuuid,
+        stats: this.liveStatsFor(e.puuid)
       }
     })
   }
@@ -477,6 +685,7 @@ export class TrackerService {
     }
     this.lastMatchId = matchId
     this.lastLive = live
+    this.scheduleStats(players.map((p) => p.puuid))
     return live
   }
 
@@ -501,7 +710,7 @@ export class TrackerService {
     )
     const players = await this.buildPlayers(entries, selfPuuid, presences)
 
-    return {
+    const live: LiveMatch = {
       matchId,
       mapName: map.name,
       mapIcon: map.icon,
@@ -513,6 +722,8 @@ export class TrackerService {
       allyAvg: this.teamAvg(players.filter((p) => !p.enemy)),
       enemyAvg: this.teamAvg(players.filter((p) => p.enemy))
     }
+    this.scheduleStats(players.map((p) => p.puuid))
+    return live
   }
 
   // ------------------------------------------------------------- history ----

@@ -745,7 +745,7 @@ body {
 }
 
 .cell-name {
-  min-width: 200px;
+  min-width: 170px;
 }
 
 .player-line {
@@ -784,7 +784,7 @@ body {
 }
 
 .cell-rank {
-  min-width: 190px;
+  min-width: 170px;
 }
 
 .rr-progress {
@@ -842,9 +842,50 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+.cell-form {
+  width: 150px;
+  font-variant-numeric: tabular-nums;
+}
+
+.form-line {
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.form-sub {
+  color: var(--text-faint);
+  font-weight: 500;
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.form-dim {
+  color: var(--text-dim);
+  font-weight: 500;
+}
+
+.wr-good {
+  color: var(--win);
+}
+
+.wr-bad {
+  color: var(--loss);
+}
+
+.form-loading {
+  color: var(--text-faint);
+  letter-spacing: 2px;
+  animation: breathe 1.4s ease infinite;
+}
+
+.prev-none {
+  color: var(--text-faint);
+}
+
 .cell-level {
   color: var(--text-dim);
-  width: 66px;
+  width: 60px;
   font-variant-numeric: tabular-nums;
 }
 
