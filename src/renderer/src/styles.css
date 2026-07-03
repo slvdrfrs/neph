@@ -803,40 +803,21 @@ body {
   transition: width 0.5s ease;
 }
 
-.badge-incognito {
-  margin-left: 8px;
-  font-size: 9.5px;
-  font-weight: 600;
-  letter-spacing: 1.2px;
-  text-transform: uppercase;
-  color: var(--draw);
-  border: 1px solid rgba(217, 185, 106, 0.35);
-  background: rgba(217, 185, 106, 0.08);
-  border-radius: 999px;
-  padding: 2px 8px;
-}
-
-.badge-meet {
-  margin-left: 8px;
-  font-size: 9.5px;
-  font-weight: 600;
-  letter-spacing: 1.2px;
-  text-transform: uppercase;
-  border-radius: 999px;
-  padding: 2px 8px;
+.meet-icon {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 7px;
+  vertical-align: middle;
   cursor: default;
+  opacity: 0.9;
 }
 
-.badge-meet.vs {
+.meet-icon.vs {
   color: var(--loss);
-  border: 1px solid rgba(244, 96, 108, 0.35);
-  background: rgba(244, 96, 108, 0.08);
 }
 
-.badge-meet.with {
+.meet-icon.with {
   color: var(--ally);
-  border: 1px solid rgba(92, 214, 207, 0.35);
-  background: rgba(92, 214, 207, 0.08);
 }
 
 .rank-badge {
