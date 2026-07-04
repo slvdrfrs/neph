@@ -3,7 +3,9 @@ import type { Snapshot, TrackerApi } from '../shared/types'
 
 const api: TrackerApi = {
   getState: () => ipcRenderer.invoke('tracker:getState'),
-  getHistory: () => ipcRenderer.invoke('tracker:getHistory'),
+  getHistory: (start = 0) => ipcRenderer.invoke('tracker:getHistory', start),
+  getScoreboard: (matchId: string) =>
+    ipcRenderer.invoke('tracker:getScoreboard', matchId),
   getProfile: () => ipcRenderer.invoke('tracker:getProfile'),
   refresh: () => ipcRenderer.invoke('tracker:refresh'),
   onState: (cb: (s: Snapshot) => void) => {

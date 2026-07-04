@@ -17,6 +17,9 @@ import type {
   RankInfo,
   SelfInfo,
   HistoryItem,
+  Scoreboard,
+  ScoreboardPlayer,
+  ScoreboardTeam,
   ProfileData,
   CompUpdate
 } from '../../shared/types'
@@ -531,7 +534,7 @@ export class TrackerService {
 
       if (needForm) {
         const history = await this.enqueueStats(() =>
-          this.remote!.getMatchHistory(puuid, 15)
+          this.remote!.getMatchHistory(puuid, 0, 15)
         )
         const entries = (history.History ?? [])
           .filter((e) => STAT_QUEUES.has(e.QueueID))
@@ -609,7 +612,7 @@ export class TrackerService {
   private async hydrateEncounters(selfPuuid: string): Promise<void> {
     try {
       const history = await this.enqueueStats(() =>
-        this.remote!.getMatchHistory(selfPuuid, 15)
+        this.remote!.getMatchHistory(selfPuuid, 0, 15)
       )
       const fresh = new Map<string, LastMeeting>()
       for (const entry of history.History ?? []) {
@@ -818,14 +821,14 @@ export class TrackerService {
 
   // ------------------------------------------------------------- history ----
 
-  async getHistory(): Promise<HistoryItem[] | { error: string }> {
+  async getHistory(start = 0): Promise<HistoryItem[] | { error: string }> {
     if (!this.remote || !this.tokens) {
       return { error: 'VALORANT no está en ejecución.' }
     }
     const puuid = this.tokens.puuid
     try {
       const [history, updates] = await Promise.all([
-        this.remote.getMatchHistory(puuid, 12),
+        this.remote.getMatchHistory(puuid, start, start + 12),
         this.remote.getCompetitiveUpdates(puuid, 20).catch(() => ({ Matches: [] }))
       ])
       const rrByMatch = new Map(
@@ -892,6 +895,8 @@ export class TrackerService {
       if (won === false && roundsWon === roundsLost) won = null // empate
     }
 
+    const ms = parseMatchStats(details, puuid)
+
     return {
       matchId,
       queue: queueName(queueId),
@@ -908,7 +913,72 @@ export class TrackerService {
       won,
       roundsWon,
       roundsLost,
-      rrDelta: rrByMatch.get(matchId) ?? null
+      rrDelta: rrByMatch.get(matchId) ?? null,
+      hsPct:
+        ms && ms.totalShots > 0 ? Math.round((ms.headshots / ms.totalShots) * 100) : null,
+      adr: ms && ms.rounds > 0 ? Math.round(ms.damage / ms.rounds) : null
+    }
+  }
+
+  /** Scoreboard completo de una partida (los 10 jugadores con sus stats). */
+  async getScoreboard(matchId: string): Promise<Scoreboard | { error: string }> {
+    if (!this.remote || !this.tokens) {
+      return { error: 'VALORANT no está en ejecución.' }
+    }
+    try {
+      let details = this.detailsCache.get(matchId)
+      if (!details) {
+        details = await this.remote.getMatchDetails(matchId)
+        this.detailsCache.set(matchId, details)
+        this.trimDetailsCache()
+      }
+      const playersRaw = (details['players'] as Array<Record<string, unknown>>) ?? []
+      const teamsRaw = (details['teams'] as Array<Record<string, unknown>>) ?? []
+
+      const teams: ScoreboardTeam[] = teamsRaw
+        .map((t) => ({
+          teamId: t['teamId'] as string,
+          won: (t['won'] as boolean) ?? false,
+          roundsWon: (t['roundsWon'] as number) ?? 0
+        }))
+        .sort((a, b) => Number(b.won) - Number(a.won))
+
+      const selfPuuid = this.tokens.puuid
+      const players: ScoreboardPlayer[] = playersRaw
+        .map((p) => {
+          const puuid = p['subject'] as string
+          const stats = (p['stats'] as Record<string, number>) ?? {}
+          const ms = parseMatchStats(details!, puuid)
+          const agent = this.statics.agent(p['characterId'] as string)
+          const tierNum = (p['competitiveTier'] as number) ?? 0
+          const tier = tierNum > 0 ? this.statics.tier(tierNum) : null
+          const rounds = ms?.rounds ?? stats['roundsPlayed'] ?? 0
+          return {
+            puuid,
+            name: (p['gameName'] as string) || agent?.name || 'Jugador',
+            tag: (p['tagLine'] as string) ?? '',
+            agentName: agent?.name ?? null,
+            agentIcon: agent?.icon ?? null,
+            teamId: p['teamId'] as string,
+            tierName: tier?.name ?? null,
+            tierIcon: tier?.icon ?? null,
+            acs: rounds > 0 ? Math.round((stats['score'] ?? 0) / rounds) : 0,
+            kills: stats['kills'] ?? 0,
+            deaths: stats['deaths'] ?? 0,
+            assists: stats['assists'] ?? 0,
+            hsPct:
+              ms && ms.totalShots > 0
+                ? Math.round((ms.headshots / ms.totalShots) * 100)
+                : null,
+            adr: ms && ms.rounds > 0 ? Math.round(ms.damage / ms.rounds) : null,
+            isSelf: puuid === selfPuuid
+          }
+        })
+        .sort((a, b) => b.acs - a.acs)
+
+      return { matchId, teams, players }
+    } catch (e) {
+      return { error: (e as Error).message }
     }
   }
 

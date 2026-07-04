@@ -164,9 +164,13 @@ export class RemoteClient {
     )
   }
 
-  getMatchHistory(puuid: string, count = 12): Promise<{ History: MatchHistoryEntry[] }> {
+  getMatchHistory(
+    puuid: string,
+    startIndex = 0,
+    endIndex = 12
+  ): Promise<{ History: MatchHistoryEntry[] }> {
     return this.get(
-      `${this.pd}/match-history/v1/history/${puuid}?startIndex=0&endIndex=${count}`
+      `${this.pd}/match-history/v1/history/${puuid}?startIndex=${startIndex}&endIndex=${endIndex}`
     )
   }
 

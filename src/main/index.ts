@@ -48,7 +48,12 @@ function createWindow(): void {
 
 app.whenReady().then(() => {
   ipcMain.handle('tracker:getState', () => service.snapshot)
-  ipcMain.handle('tracker:getHistory', () => service.getHistory())
+  ipcMain.handle('tracker:getHistory', (_e, start?: number) =>
+    service.getHistory(start ?? 0)
+  )
+  ipcMain.handle('tracker:getScoreboard', (_e, matchId: string) =>
+    service.getScoreboard(matchId)
+  )
   ipcMain.handle('tracker:getProfile', () => service.getProfile())
   ipcMain.handle('tracker:refresh', () => service.pollNow())
 

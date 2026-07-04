@@ -117,6 +117,38 @@ export interface HistoryItem {
   roundsWon: number
   roundsLost: number
   rrDelta: number | null
+  hsPct: number | null
+  adr: number | null
+}
+
+export interface ScoreboardPlayer {
+  puuid: string
+  name: string
+  tag: string
+  agentName: string | null
+  agentIcon: string | null
+  teamId: string
+  tierName: string | null
+  tierIcon: string | null
+  acs: number
+  kills: number
+  deaths: number
+  assists: number
+  hsPct: number | null
+  adr: number | null
+  isSelf: boolean
+}
+
+export interface ScoreboardTeam {
+  teamId: string
+  won: boolean
+  roundsWon: number
+}
+
+export interface Scoreboard {
+  matchId: string
+  teams: ScoreboardTeam[]
+  players: ScoreboardPlayer[]
 }
 
 export interface CompUpdate {
@@ -137,7 +169,8 @@ export interface ProfileData {
 
 export interface TrackerApi {
   getState: () => Promise<Snapshot>
-  getHistory: () => Promise<HistoryItem[] | { error: string }>
+  getHistory: (start?: number) => Promise<HistoryItem[] | { error: string }>
+  getScoreboard: (matchId: string) => Promise<Scoreboard | { error: string }>
   getProfile: () => Promise<ProfileData | { error: string }>
   refresh: () => Promise<void>
   onState: (cb: (s: Snapshot) => void) => () => void
