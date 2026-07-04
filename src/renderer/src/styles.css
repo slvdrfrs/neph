@@ -542,9 +542,9 @@ body {
 .lobby-banners {
   display: flex;
   justify-content: center;
-  align-items: stretch;
+  align-items: center;
   gap: 16px;
-  margin-top: 44px;
+  margin-top: 40px;
 }
 
 .banner {
@@ -566,6 +566,8 @@ body {
 
 .banner.self {
   border-color: rgba(92, 214, 207, 0.4);
+  height: 365px;
+  width: 150px;
 }
 
 .banner-art {

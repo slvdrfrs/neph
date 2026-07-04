@@ -200,7 +200,12 @@ export function LivePage({ snapshot }: { snapshot: Snapshot }): JSX.Element {
 
   if (state === 'menus' || !live) {
     const members = menus?.members ?? []
-    const ghosts = Math.max(0, 5 - members.length)
+    // Como en el lobby de VALORANT: tú al centro y el resto hacia los lados
+    const slots: Array<(typeof members)[number] | null> = [null, null, null, null, null]
+    const fillOrder = [2, 3, 1, 4, 0]
+    members.slice(0, 5).forEach((m, i) => {
+      slots[fillOrder[i]] = m
+    })
 
     return (
       <div className="lobby">
@@ -216,7 +221,14 @@ export function LivePage({ snapshot }: { snapshot: Snapshot }): JSX.Element {
 
         {members.length > 0 && (
           <div className="lobby-banners">
-            {members.map((m) => {
+            {slots.map((m, i) => {
+              if (!m) {
+                return (
+                  <div key={`ghost-${i}`} className="banner ghost">
+                    <span>+</span>
+                  </div>
+                )
+              }
               // Para ti usamos el rango del perfil (incluye RR); las presencias no lo traen
               const rank = m.isSelf ? snapshot.self?.rank ?? m.rank : m.rank
               return (
@@ -243,11 +255,6 @@ export function LivePage({ snapshot }: { snapshot: Snapshot }): JSX.Element {
                 </div>
               )
             })}
-            {Array.from({ length: ghosts }, (_, i) => (
-              <div key={`ghost-${i}`} className="banner ghost">
-                <span>+</span>
-              </div>
-            ))}
           </div>
         )}
       </div>
