@@ -213,15 +213,14 @@ export function LivePage({ snapshot }: { snapshot: Snapshot }): JSX.Element {
         <p className="lobby-sub">
           Cuando entres en una partida verás aquí los rangos y la forma de los 10 jugadores.
         </p>
-        {menus?.queueName && (
-          <div className="menus-info">
-            <span>Cola: {menus.queueName}</span>
-          </div>
-        )}
 
         {members.length > 0 && (
-          <div className="lobby-banners">
-            {slots.map((m, i) => {
+          <div className="lobby-stage">
+            <div className="lobby-watermark" aria-hidden="true">
+              NEPH.GG
+            </div>
+            <div className="lobby-banners">
+              {slots.map((m, i) => {
               if (!m) {
                 return (
                   <div key={`ghost-${i}`} className="banner ghost">
@@ -255,6 +254,13 @@ export function LivePage({ snapshot }: { snapshot: Snapshot }): JSX.Element {
                 </div>
               )
             })}
+            </div>
+            <div className="lobby-floor" aria-hidden="true" />
+            {menus?.queueName && (
+              <div className="menus-info">
+                <span>Cola: {menus.queueName}</span>
+              </div>
+            )}
           </div>
         )}
       </div>

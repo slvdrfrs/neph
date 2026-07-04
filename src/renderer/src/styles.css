@@ -539,12 +539,82 @@ body {
   line-height: 1.6;
 }
 
+.lobby-stage {
+  position: relative;
+  margin-top: 26px;
+  padding: 34px 0 0;
+}
+
+/* Glow ambiental tras el banner central */
+.lobby-stage::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -55%);
+  width: 720px;
+  height: 380px;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(255, 70, 85, 0.07) 0%,
+    rgba(255, 70, 85, 0.02) 45%,
+    transparent 70%
+  );
+  pointer-events: none;
+}
+
+.lobby-watermark {
+  position: absolute;
+  top: 46%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: var(--serif);
+  font-size: 150px;
+  letter-spacing: 26px;
+  color: rgba(255, 255, 255, 0.022);
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
+}
+
+.lobby-floor {
+  width: min(680px, 90%);
+  height: 1px;
+  margin: 30px auto 22px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--border-strong) 30%,
+    var(--border-strong) 70%,
+    transparent
+  );
+}
+
 .lobby-banners {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 16px;
-  margin-top: 40px;
+  gap: 18px;
+  position: relative;
+}
+
+/* Escalonado como el lobby de VALORANT: centro grande, laterales medianos,
+   orillas pequeñas (aplica también a los huecos vacíos) */
+.lobby-banners .banner:nth-child(1),
+.lobby-banners .banner:nth-child(5) {
+  width: 126px;
+  height: 300px;
+}
+
+.lobby-banners .banner:nth-child(2),
+.lobby-banners .banner:nth-child(4) {
+  width: 148px;
+  height: 352px;
+}
+
+.lobby-banners .banner:nth-child(3) {
+  width: 172px;
+  height: 410px;
 }
 
 .banner {
@@ -563,11 +633,6 @@ body {
 .lobby-banners .banner:nth-child(3) { animation-delay: 0.13s; }
 .lobby-banners .banner:nth-child(4) { animation-delay: 0.18s; }
 .lobby-banners .banner:nth-child(5) { animation-delay: 0.23s; }
-
-.banner.self {
-  height: 365px;
-  width: 150px;
-}
 
 .banner-art {
   position: absolute;
