@@ -84,9 +84,22 @@ export interface SelfInfo {
   cardSmall: string | null
 }
 
+/** Miembro de tu grupo en el lobby (desde las presencias) */
+export interface PartyMember {
+  puuid: string
+  name: string
+  tag: string
+  level: number | null
+  rank: RankInfo | null
+  /** Arte vertical de su tarjeta de jugador */
+  card: string | null
+  isSelf: boolean
+}
+
 export interface MenusInfo {
   queueName: string | null
   partySize: number | null
+  members: PartyMember[]
 }
 
 export interface Snapshot {

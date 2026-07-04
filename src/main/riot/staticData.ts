@@ -115,18 +115,21 @@ export class StaticData {
     return this.oldActs.has(seasonId.toLowerCase())
   }
 
-  private cards = new Map<string, { wide: string | null; small: string | null }>()
+  private cards = new Map<
+    string,
+    { wide: string | null; small: string | null; large: string | null }
+  >()
 
   /** Arte de una tarjeta de jugador (con caché). */
   async playerCard(
     cardId: string
-  ): Promise<{ wide: string | null; small: string | null }> {
+  ): Promise<{ wide: string | null; small: string | null; large: string | null }> {
     const cached = this.cards.get(cardId)
     if (cached) return cached
     const r = await requestJson<{
-      data: { wideArt: string | null; smallArt: string | null }
+      data: { wideArt: string | null; smallArt: string | null; largeArt: string | null }
     }>(`${BASE}/playercards/${cardId}`)
-    const entry = { wide: r.data.wideArt, small: r.data.smallArt }
+    const entry = { wide: r.data.wideArt, small: r.data.smallArt, large: r.data.largeArt }
     this.cards.set(cardId, entry)
     return entry
   }

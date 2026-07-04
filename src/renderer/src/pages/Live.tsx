@@ -199,19 +199,55 @@ export function LivePage({ snapshot }: { snapshot: Snapshot }): JSX.Element {
   }
 
   if (state === 'menus' || !live) {
+    const members = menus?.members ?? []
+    const ghosts = Math.max(0, 5 - members.length)
+
     return (
-      <div className="empty-state">
-        <h2>Estás en los menús</h2>
-        <p>
-          Cuando entres en una partida verás aquí los rangos, niveles y grupos de todos los
-          jugadores.
+      <div className="lobby">
+        <h2 className="lobby-title">En los menús</h2>
+        <p className="lobby-sub">
+          Cuando entres en una partida verás aquí los rangos y la forma de los 10 jugadores.
         </p>
-        {menus && (menus.queueName || menus.partySize) && (
+        {menus?.queueName && (
           <div className="menus-info">
-            {menus.queueName && <span>Cola: {menus.queueName}</span>}
-            {menus.partySize != null && menus.partySize > 1 && (
-              <span>Grupo de {menus.partySize}</span>
-            )}
+            <span>Cola: {menus.queueName}</span>
+          </div>
+        )}
+
+        {members.length > 0 && (
+          <div className="lobby-banners">
+            {members.map((m) => {
+              // Para ti usamos el rango del perfil (incluye RR); las presencias no lo traen
+              const rank = m.isSelf ? snapshot.self?.rank ?? m.rank : m.rank
+              return (
+                <div key={m.puuid} className={`banner ${m.isSelf ? 'self' : ''}`}>
+                  {m.card ? (
+                    <img className="banner-art" src={m.card} alt="" />
+                  ) : (
+                    <div className="banner-art banner-art-empty" />
+                  )}
+                  {m.level != null && <div className="banner-level">{m.level}</div>}
+                  <div className="banner-bottom">
+                    <div className="banner-name">
+                      {m.name}
+                      {m.tag && <span className="banner-tag">#{m.tag}</span>}
+                    </div>
+                    <div className="banner-rank">
+                      {rank?.icon && <img src={rank.icon} alt="" />}
+                      <span>{rank?.name ?? 'Sin clasificar'}</span>
+                      {m.isSelf && rank && rank.tier > 0 && rank.rr > 0 && (
+                        <span className="banner-rr">{rank.rr} RR</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+            {Array.from({ length: ghosts }, (_, i) => (
+              <div key={`ghost-${i}`} className="banner ghost">
+                <span>+</span>
+              </div>
+            ))}
           </div>
         )}
       </div>

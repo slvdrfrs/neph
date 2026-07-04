@@ -14,6 +14,7 @@ export interface PresencePrivate {
   queueId?: string
   accountLevel?: number
   competitiveTier?: number
+  playerCardId?: string
   matchMap?: string
 }
 

@@ -16,6 +16,7 @@ import type {
   LastMeeting,
   RankInfo,
   SelfInfo,
+  PartyMember,
   HistoryItem,
   Scoreboard,
   ScoreboardPlayer,
@@ -279,20 +280,63 @@ export class TrackerService {
     // En menús
     this.lastMatchId = null
     this.lastLive = null
+    const self = await this.buildSelf(puuid, presences)
     this.snapshot = {
       state: 'menus',
       updatedAt: Date.now(),
-      self: await this.buildSelf(puuid, presences),
+      self,
       live: null,
       menus: {
         queueName: selfPresence?.private?.queueId != null
           ? queueName(selfPresence.private.queueId)
           : null,
-        partySize: selfPresence?.private?.partySize ?? null
+        partySize: selfPresence?.private?.partySize ?? null,
+        members: await this.buildParty(puuid, presences, selfPresence)
       },
       error: null,
       region: this.regionInfo.region
     }
+  }
+
+  /** Miembros de tu grupo en el lobby, con su tarjeta, nivel y rango. */
+  private async buildParty(
+    selfPuuid: string,
+    presences: Presence[],
+    selfPresence: Presence | null
+  ): Promise<PartyMember[]> {
+    const partyId = selfPresence?.private?.partyId
+    if (!partyId) return []
+    const partyPres = presences.filter((p) => p.private?.partyId === partyId)
+
+    const members = await Promise.all(
+      partyPres.map(async (p): Promise<PartyMember> => {
+        let card: string | null = null
+        const cardId = p.private?.playerCardId
+        if (cardId) {
+          card = await this.statics
+            .playerCard(cardId)
+            .then((c) => c.large)
+            .catch(() => null)
+        }
+        const tierNum = p.private?.competitiveTier ?? 0
+        let rank: RankInfo | null = null
+        if (tierNum > 0) {
+          const t = this.statics.tier(tierNum)
+          rank = { tier: tierNum, name: t.name, icon: t.icon, rr: 0 }
+        }
+        return {
+          puuid: p.puuid,
+          name: p.game_name,
+          tag: p.game_tag,
+          level: p.private?.accountLevel ?? null,
+          rank,
+          card,
+          isSelf: p.puuid === selfPuuid
+        }
+      })
+    )
+    // Tú primero, como en el lobby
+    return members.sort((a, b) => Number(b.isSelf) - Number(a.isSelf))
   }
 
   // ------------------------------------------------------------- helpers ----
