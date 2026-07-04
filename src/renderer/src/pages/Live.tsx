@@ -6,6 +6,7 @@ import type {
   Snapshot
 } from '../../../shared/types'
 import { RankBadge } from '../components/RankBadge'
+import logoUrl from '../assets/logo.png'
 
 function timeAgo(ms: number): string {
   if (!ms) return ''
@@ -216,9 +217,7 @@ export function LivePage({ snapshot }: { snapshot: Snapshot }): JSX.Element {
 
         {members.length > 0 && (
           <div className="lobby-stage">
-            <div className="lobby-watermark" aria-hidden="true">
-              NEPH.GG
-            </div>
+            <img className="lobby-watermark" src={logoUrl} alt="" aria-hidden="true" />
             <div className="lobby-banners">
               {slots.map((m, i) => {
               if (!m) {
@@ -242,13 +241,19 @@ export function LivePage({ snapshot }: { snapshot: Snapshot }): JSX.Element {
                       {m.name}
                       {m.tag && <span className="banner-tag">#{m.tag}</span>}
                     </div>
-                    <div className="banner-rank">
-                      {rank?.icon && <img src={rank.icon} alt="" />}
-                      <span>{rank?.name ?? 'Sin clasificar'}</span>
-                      {rank && rank.tier > 0 && rank.rr > 0 && (
-                        <span className="banner-rr">{rank.rr} RR</span>
-                      )}
-                    </div>
+                    {rank?.icon ? (
+                      <img
+                        className="banner-rank-icon"
+                        src={rank.icon}
+                        alt={rank.name}
+                        title={rank.name}
+                      />
+                    ) : (
+                      <div className="banner-unranked">Sin clasificar</div>
+                    )}
+                    {rank && rank.tier > 0 && (
+                      <div className="banner-rr">{rank.rr} RR</div>
+                    )}
                     {m.level != null && <div className="banner-level">Nivel {m.level}</div>}
                   </div>
                 </div>
