@@ -54,6 +54,9 @@ app.whenReady().then(() => {
   ipcMain.handle('tracker:getScoreboard', (_e, matchId: string) =>
     service.getScoreboard(matchId)
   )
+  ipcMain.handle('tracker:getCareer', (_e, puuid: string, name: string, tag: string) =>
+    service.getCareer(puuid, name, tag)
+  )
   ipcMain.handle('tracker:getProfile', () => service.getProfile())
   ipcMain.handle('tracker:refresh', () => service.pollNow())
 
