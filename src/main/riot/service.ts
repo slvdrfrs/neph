@@ -298,8 +298,55 @@ export class TrackerService {
     }
   }
 
-  /** Miembros de tu grupo en el lobby, con su tarjeta, nivel y rango. */
+  /**
+   * Miembros de tu grupo en el lobby. Usa el servicio de parties (incluye a
+   * los que no son tus amigos, que el chat no expone); las presencias quedan
+   * como respaldo si falla.
+   */
   private async buildParty(
+    selfPuuid: string,
+    presences: Presence[],
+    selfPresence: Presence | null
+  ): Promise<PartyMember[]> {
+    try {
+      const partyId = await this.remote!.getPartyId(selfPuuid)
+      if (!partyId) throw new Error('sin party')
+      const party = await this.remote!.getParty(partyId)
+      const raw = party.Members ?? []
+      if (raw.length === 0) throw new Error('party vacía')
+
+      const names = await this.resolveNames(raw.map((m) => m.Subject))
+      const members = await Promise.all(
+        raw.map(async (m): Promise<PartyMember> => {
+          let card: string | null = null
+          const cardId = m.PlayerIdentity?.PlayerCardID
+          if (cardId) {
+            card = await this.statics
+              .playerCard(cardId)
+              .then((c) => c.large)
+              .catch(() => null)
+          }
+          const r = await this.getRank(m.Subject)
+          const n = names.get(m.Subject)
+          return {
+            puuid: m.Subject,
+            name: n?.name || 'Jugador',
+            tag: n?.tag ?? '',
+            level: m.PlayerIdentity?.AccountLevel ?? null,
+            rank: r.rank.tier > 0 ? r.rank : null,
+            card,
+            isSelf: m.Subject === selfPuuid
+          }
+        })
+      )
+      return members.sort((a, b) => Number(b.isSelf) - Number(a.isSelf))
+    } catch {
+      return this.buildPartyFromPresences(selfPuuid, presences, selfPresence)
+    }
+  }
+
+  /** Respaldo: party desde las presencias del chat (solo amigos visibles). */
+  private async buildPartyFromPresences(
     selfPuuid: string,
     presences: Presence[],
     selfPresence: Presence | null
@@ -335,7 +382,6 @@ export class TrackerService {
         }
       })
     )
-    // Tú primero, como en el lobby
     return members.sort((a, b) => Number(b.isSelf) - Number(a.isSelf))
   }
 

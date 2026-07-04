@@ -246,7 +246,7 @@ export function LivePage({ snapshot }: { snapshot: Snapshot }): JSX.Element {
                     <div className="banner-rank">
                       {rank?.icon && <img src={rank.icon} alt="" />}
                       <span>{rank?.name ?? 'Sin clasificar'}</span>
-                      {m.isSelf && rank && rank.tier > 0 && rank.rr > 0 && (
+                      {rank && rank.tier > 0 && rank.rr > 0 && (
                         <span className="banner-rr">{rank.rr} RR</span>
                       )}
                     </div>

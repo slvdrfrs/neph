@@ -212,6 +212,30 @@ export class RemoteClient {
     return this.get(`${this.glz}/core-game/v1/matches/${matchId}`)
   }
 
+  /** ID del grupo actual del jugador (null si no se puede obtener). */
+  async getPartyId(puuid: string): Promise<string | null> {
+    try {
+      const r = await this.get<{ CurrentPartyID: string }>(
+        `${this.glz}/parties/v1/players/${puuid}`
+      )
+      return r.CurrentPartyID ?? null
+    } catch (e) {
+      if (e instanceof HttpError && (e.status === 404 || e.status === 400)) return null
+      throw e
+    }
+  }
+
+  /** Miembros del grupo: incluye a todos aunque no sean amigos. */
+  getParty(partyId: string): Promise<{
+    Members?: Array<{
+      Subject: string
+      IsOwner?: boolean
+      PlayerIdentity?: PlayerIdentity
+    }>
+  }> {
+    return this.get(`${this.glz}/parties/v1/parties/${partyId}`)
+  }
+
   /** null si no está en selección de agentes. */
   async getPregameMatchId(puuid: string): Promise<string | null> {
     try {
