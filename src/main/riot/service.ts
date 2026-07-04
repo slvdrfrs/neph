@@ -27,12 +27,16 @@ import type {
 } from '../../shared/types'
 
 const POLL_MS = 5000
-const MMR_CACHE_MS = 90_000
-const STATS_TTL_MS = 600_000
+/** El rango no cambia durante una partida; se limpia al volver a los menús */
+const MMR_CACHE_MS = 600_000
+/** La forma de un jugador tampoco cambia mientras juega contigo */
+const STATS_TTL_MS = 1_800_000
 /** Espaciado entre peticiones de stats: ~65/min como máximo absoluto */
 const STATS_GAP_MS = 900
+/** Espaciado penalizado tras un 429 reciente */
+const STATS_GAP_SLOW_MS = 2200
 /** Partidas analizadas por jugador para KD/HS/ADR */
-const STATS_MATCHES = 5
+const STATS_MATCHES = 3
 /** Modos válidos para calcular KD/HS/ADR (fuera deathmatch y modos raros) */
 const STAT_QUEUES = new Set(['competitive', 'unrated', 'swiftplay', 'premier'])
 
@@ -246,8 +250,25 @@ export class TrackerService {
     const presences = await this.local.getPresences().catch(() => [] as Presence[])
     const selfPresence = presences.find((p) => p.puuid === puuid) ?? null
 
-    // ¿En partida?
-    const coreMatchId = await this.remote.getCoreGameMatchId(puuid).catch(() => null)
+    // La presencia local (gratis) dice en qué estado estás: solo se consulta a
+    // los servidores de Riot cuando indica partida o cuando no hay presencia.
+    const loop = selfPresence?.private?.sessionLoopState ?? null
+
+    let coreMatchId: string | null = null
+    let pregameId: string | null = null
+    if (loop === 'PREGAME') {
+      pregameId = await this.remote.getPregameMatchId(puuid).catch(() => null)
+      if (!pregameId) {
+        coreMatchId = await this.remote.getCoreGameMatchId(puuid).catch(() => null)
+      }
+    } else if (loop === 'INGAME' || loop === null) {
+      coreMatchId = await this.remote.getCoreGameMatchId(puuid).catch(() => null)
+      if (!coreMatchId) {
+        pregameId = await this.remote.getPregameMatchId(puuid).catch(() => null)
+      }
+    }
+    // loop === 'MENUS': cero llamadas a glz
+
     if (coreMatchId) {
       const live = await this.buildCoreGame(coreMatchId, puuid, presences)
       this.snapshot = {
@@ -263,7 +284,6 @@ export class TrackerService {
     }
 
     // ¿En selección de agentes?
-    const pregameId = await this.remote.getPregameMatchId(puuid).catch(() => null)
     if (pregameId) {
       const live = await this.buildPregame(pregameId, puuid, presences)
       this.snapshot = {
@@ -278,7 +298,12 @@ export class TrackerService {
       return
     }
 
-    // En menús
+    // En menús. Si venimos de una partida, los rangos y los cruces cambiaron:
+    // se invalidan para refrescarlos con los datos post-partida.
+    if (this.snapshot.state === 'ingame') {
+      this.mmrCache.clear()
+      this.encountersAt = 0
+    }
     this.lastMatchId = null
     this.lastLive = null
     const self = await this.buildSelf(puuid, presences)
@@ -549,7 +574,10 @@ export class TrackerService {
   private enqueueStats<T>(fn: () => Promise<T>): Promise<T> {
     const run = this.statsChain.then(async () => {
       const result = await fn()
-      await sleep(STATS_GAP_MS)
+      // Si Riot nos frenó hace poco, baja el ritmo temporalmente
+      const penalized =
+        this.remote !== null && Date.now() - this.remote.last429At < 60_000
+      await sleep(penalized ? STATS_GAP_SLOW_MS : STATS_GAP_MS)
       return result
     })
     this.statsChain = run.catch(() => undefined)
@@ -836,7 +864,11 @@ export class TrackerService {
       Date.now() - this.snapshot.updatedAt < 30_000 &&
       this.snapshot.state === 'ingame'
     ) {
-      this.scheduleStats(this.lastLive.players.map((p) => p.puuid))
+      this.scheduleStats(
+        [...this.lastLive.players]
+          .sort((a, b) => Number(b.enemy) - Number(a.enemy))
+          .map((p) => p.puuid)
+      )
       return this.lastLive
     }
 
@@ -867,7 +899,10 @@ export class TrackerService {
     }
     this.lastMatchId = matchId
     this.lastLive = live
-    this.scheduleStats(players.map((p) => p.puuid))
+    // Los enemigos primero: su información es la que importa
+    this.scheduleStats(
+      [...players].sort((a, b) => Number(b.enemy) - Number(a.enemy)).map((p) => p.puuid)
+    )
     this.scheduleEncounters(selfPuuid)
     return live
   }
@@ -905,7 +940,9 @@ export class TrackerService {
       allyAvg: this.teamAvg(players.filter((p) => !p.enemy)),
       enemyAvg: this.teamAvg(players.filter((p) => p.enemy))
     }
-    this.scheduleStats(players.map((p) => p.puuid))
+    this.scheduleStats(
+      [...players].sort((a, b) => Number(b.enemy) - Number(a.enemy)).map((p) => p.puuid)
+    )
     this.scheduleEncounters(selfPuuid)
     return live
   }

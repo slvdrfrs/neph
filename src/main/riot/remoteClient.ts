@@ -109,6 +109,8 @@ export class RemoteClient {
   private pd: string
   private glz: string
   private shared: string
+  /** Momento del último 429 recibido (para frenar la cola de stats) */
+  last429At = 0
 
   constructor(
     regionInfo: RegionInfo,
@@ -138,9 +140,12 @@ export class RemoteClient {
     try {
       return await requestJson<T>(url, { headers: this.headers() })
     } catch (e) {
-      if (e instanceof HttpError && e.status === 429 && attempt < 3) {
-        await sleep(2500 * 2 ** attempt + Math.floor(Math.random() * 500))
-        return this.get(url, attempt + 1)
+      if (e instanceof HttpError && e.status === 429) {
+        this.last429At = Date.now()
+        if (attempt < 3) {
+          await sleep(2500 * 2 ** attempt + Math.floor(Math.random() * 500))
+          return this.get(url, attempt + 1)
+        }
       }
       throw e
     }
