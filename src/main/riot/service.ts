@@ -1070,6 +1070,33 @@ export class TrackerService {
         }))
         .sort((a, b) => Number(b.won) - Number(a.won))
 
+      // Los detalles ya no traen los nombres: se resuelven con el name-service
+      const names = await this.resolveNames(
+        playersRaw.map((p) => p['subject'] as string)
+      )
+
+      // Primeras sangres: la kill más temprana de cada ronda
+      const fbCount = new Map<string, number>()
+      for (const round of (details['roundResults'] as Array<Record<string, unknown>>) ??
+        []) {
+        let bestTime = Infinity
+        let bestKiller: string | null = null
+        for (const ps of (round['playerStats'] as Array<Record<string, unknown>>) ?? []) {
+          for (const k of (ps['kills'] as Array<Record<string, unknown>>) ?? []) {
+            const t =
+              (k['roundTime'] as number) ??
+              (k['timeSinceRoundStartMillis'] as number) ??
+              (k['gameTime'] as number) ??
+              Infinity
+            if (t < bestTime) {
+              bestTime = t
+              bestKiller = (k['killer'] as string) ?? (ps['subject'] as string)
+            }
+          }
+        }
+        if (bestKiller) fbCount.set(bestKiller, (fbCount.get(bestKiller) ?? 0) + 1)
+      }
+
       const selfPuuid = this.tokens.puuid
       const players: ScoreboardPlayer[] = playersRaw
         .map((p) => {
@@ -1080,10 +1107,11 @@ export class TrackerService {
           const tierNum = (p['competitiveTier'] as number) ?? 0
           const tier = tierNum > 0 ? this.statics.tier(tierNum) : null
           const rounds = ms?.rounds ?? stats['roundsPlayed'] ?? 0
+          const n = names.get(puuid)
           return {
             puuid,
-            name: (p['gameName'] as string) || agent?.name || 'Jugador',
-            tag: (p['tagLine'] as string) ?? '',
+            name: n?.name || (p['gameName'] as string) || agent?.name || 'Jugador',
+            tag: n?.tag || ((p['tagLine'] as string) ?? ''),
             agentName: agent?.name ?? null,
             agentIcon: agent?.icon ?? null,
             teamId: p['teamId'] as string,
@@ -1098,10 +1126,23 @@ export class TrackerService {
                 ? Math.round((ms.headshots / ms.totalShots) * 100)
                 : null,
             adr: ms && ms.rounds > 0 ? Math.round(ms.damage / ms.rounds) : null,
+            fb: fbCount.get(puuid) ?? 0,
+            mvp: null as ScoreboardPlayer['mvp'],
             isSelf: puuid === selfPuuid
           }
         })
         .sort((a, b) => b.acs - a.acs)
+
+      // MVP de la partida (mejor ACS del equipo ganador) y del equipo perdedor
+      const winTeamId = teams.find((t) => t.won)?.teamId ?? null
+      const matchMvp = winTeamId
+        ? players.find((p) => p.teamId === winTeamId)
+        : players[0]
+      if (matchMvp) matchMvp.mvp = 'match'
+      if (winTeamId) {
+        const teamMvp = players.find((p) => p.teamId !== winTeamId)
+        if (teamMvp) teamMvp.mvp = 'team'
+      }
 
       return { matchId, teams, players }
     } catch (e) {

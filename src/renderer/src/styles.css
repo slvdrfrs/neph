@@ -1313,6 +1313,20 @@ body {
   white-space: nowrap;
 }
 
+.sb-mvp {
+  margin-left: 6px;
+  font-size: 11px;
+  cursor: default;
+}
+
+.sb-mvp.match {
+  color: var(--draw);
+}
+
+.sb-mvp.team {
+  color: var(--text-faint);
+}
+
 .sb-strong {
   color: var(--text);
   font-weight: 700;

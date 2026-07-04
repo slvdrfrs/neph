@@ -49,6 +49,7 @@ function ScoreboardView({ sb }: { sb: Scoreboard }): JSX.Element {
                 <th>K / D / A</th>
                 <th>HS%</th>
                 <th>ADR</th>
+                <th title="Primeras sangres (primera kill de la ronda)">FB</th>
               </tr>
             </thead>
             <tbody>
@@ -67,6 +68,14 @@ function ScoreboardView({ sb }: { sb: Scoreboard }): JSX.Element {
                   <td className="sb-name">
                     {p.name}
                     {p.tag && <span className="player-tag">#{p.tag}</span>}
+                    {p.mvp && (
+                      <span
+                        className={`sb-mvp ${p.mvp}`}
+                        title={p.mvp === 'match' ? 'MVP de la partida' : 'MVP de su equipo'}
+                      >
+                        ★
+                      </span>
+                    )}
                   </td>
                   <td>
                     {p.tierIcon && (
@@ -79,6 +88,7 @@ function ScoreboardView({ sb }: { sb: Scoreboard }): JSX.Element {
                   </td>
                   <td className="sb-num">{p.hsPct !== null ? `${p.hsPct}%` : '—'}</td>
                   <td className="sb-num">{p.adr ?? '—'}</td>
+                  <td className="sb-num">{p.fb > 0 ? p.fb : '—'}</td>
                 </tr>
               ))}
             </tbody>

@@ -149,6 +149,10 @@ export interface ScoreboardPlayer {
   assists: number
   hsPct: number | null
   adr: number | null
+  /** Primeras sangres (primera kill de la ronda) */
+  fb: number
+  /** MVP de la partida (ganadores) o de su equipo (perdedores) */
+  mvp: 'match' | 'team' | null
   isSelf: boolean
 }
 
