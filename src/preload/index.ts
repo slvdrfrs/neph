@@ -6,8 +6,6 @@ const api: TrackerApi = {
   getHistory: (start = 0) => ipcRenderer.invoke('tracker:getHistory', start),
   getScoreboard: (matchId: string) =>
     ipcRenderer.invoke('tracker:getScoreboard', matchId),
-  getCareer: (puuid: string, name: string, tag: string) =>
-    ipcRenderer.invoke('tracker:getCareer', puuid, name, tag),
   getProfile: () => ipcRenderer.invoke('tracker:getProfile'),
   refresh: () => ipcRenderer.invoke('tracker:refresh'),
   onState: (cb: (s: Snapshot) => void) => {

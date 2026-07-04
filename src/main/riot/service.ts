@@ -22,7 +22,6 @@ import type {
   ScoreboardPlayer,
   ScoreboardTeam,
   ProfileData,
-  CareerData,
   CompUpdate
 } from '../../shared/types'
 
@@ -1105,108 +1104,6 @@ export class TrackerService {
         .sort((a, b) => b.acs - a.acs)
 
       return { matchId, teams, players }
-    } catch (e) {
-      return { error: (e as Error).message }
-    }
-  }
-
-  // -------------------------------------------------------------- career ----
-
-  private careerCache = new Map<string, { at: number; data: CareerData }>()
-
-  /** Carrera de cualquier jugador: rango, forma y últimas partidas. */
-  async getCareer(
-    puuid: string,
-    name: string,
-    tag: string
-  ): Promise<CareerData | { error: string }> {
-    if (!this.remote || !this.tokens) {
-      return { error: 'VALORANT no está en ejecución.' }
-    }
-    const cached = this.careerCache.get(puuid)
-    if (cached && Date.now() - cached.at < 300_000) {
-      return { ...cached.data, name, tag }
-    }
-    try {
-      const { rank, peak } = await this.getRank(puuid)
-
-      const updates = await this.enqueueStats(() =>
-        this.remote!.getCompetitiveUpdates(puuid, 15)
-      ).catch(() => ({ Matches: [] as never[] }))
-
-      const rrByMatch = new Map(
-        (updates.Matches ?? []).map((m) => [m.MatchID, m.RankedRatingEarned])
-      )
-      let wins = 0
-      let losses = 0
-      const parsedUpdates: CompUpdate[] = (updates.Matches ?? []).map((m) => {
-        if (m.RankedRatingEarned > 0) wins++
-        else if (m.RankedRatingEarned < 0) losses++
-        const t = this.statics.tier(m.TierAfterUpdate)
-        const map = this.statics.map(m.MapID)
-        return {
-          matchId: m.MatchID,
-          startedAt: m.MatchStartTime,
-          tierAfter: m.TierAfterUpdate,
-          tierName: t.name,
-          tierIcon: t.icon,
-          rrAfter: m.RankedRatingAfterUpdate,
-          delta: m.RankedRatingEarned,
-          mapName: map.name
-        }
-      })
-      const wrGames = wins + losses
-
-      const history = await this.enqueueStats(() =>
-        this.remote!.getMatchHistory(puuid, 0, 12)
-      )
-      const entries = (history.History ?? [])
-        .filter((e) => STAT_QUEUES.has(e.QueueID))
-        .slice(0, STATS_MATCHES)
-
-      const matches: HistoryItem[] = []
-      const agg = { kills: 0, deaths: 0, hs: 0, shots: 0, dmg: 0, rounds: 0 }
-      for (const entry of entries) {
-        let details = this.detailsCache.get(entry.MatchID)
-        if (!details) {
-          details = await this.enqueueStats(() =>
-            this.remote!.getMatchDetails(entry.MatchID)
-          )
-          this.detailsCache.set(entry.MatchID, details)
-          this.trimDetailsCache()
-        }
-        const item = this.parseMatchDetails(details, puuid, rrByMatch)
-        if (item) matches.push(item)
-        const ms = parseMatchStats(details, puuid)
-        if (ms) {
-          agg.kills += ms.kills
-          agg.deaths += ms.deaths
-          agg.hs += ms.headshots
-          agg.shots += ms.totalShots
-          agg.dmg += ms.damage
-          agg.rounds += ms.rounds
-        }
-      }
-
-      const data: CareerData = {
-        puuid,
-        name,
-        tag,
-        rank,
-        peak,
-        winrate: wrGames > 0 ? Math.round((wins / wrGames) * 100) : null,
-        wrGames,
-        kd:
-          matches.length > 0
-            ? Math.round((agg.kills / Math.max(agg.deaths, 1)) * 100) / 100
-            : null,
-        hsPct: agg.shots > 0 ? Math.round((agg.hs / agg.shots) * 100) : null,
-        adr: agg.rounds > 0 ? Math.round(agg.dmg / agg.rounds) : null,
-        updates: parsedUpdates,
-        matches
-      }
-      this.careerCache.set(puuid, { at: Date.now(), data })
-      return data
     } catch (e) {
       return { error: (e as Error).message }
     }

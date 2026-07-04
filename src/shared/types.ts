@@ -180,33 +180,10 @@ export interface ProfileData {
   updates: CompUpdate[]
 }
 
-/** Carrera de cualquier jugador (al hacer clic en él) */
-export interface CareerData {
-  puuid: string
-  name: string
-  tag: string
-  rank: RankInfo
-  peak: RankInfo | null
-  winrate: number | null
-  wrGames: number
-  kd: number | null
-  hsPct: number | null
-  adr: number | null
-  /** Últimas partidas competitivas con su RR */
-  updates: CompUpdate[]
-  /** Últimas partidas analizadas en detalle */
-  matches: HistoryItem[]
-}
-
 export interface TrackerApi {
   getState: () => Promise<Snapshot>
   getHistory: (start?: number) => Promise<HistoryItem[] | { error: string }>
   getScoreboard: (matchId: string) => Promise<Scoreboard | { error: string }>
-  getCareer: (
-    puuid: string,
-    name: string,
-    tag: string
-  ) => Promise<CareerData | { error: string }>
   getProfile: () => Promise<ProfileData | { error: string }>
   refresh: () => Promise<void>
   onState: (cb: (s: Snapshot) => void) => () => void

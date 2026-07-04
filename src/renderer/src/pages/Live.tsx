@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import type {
   LastMeeting,
   LivePlayer,
@@ -7,7 +6,6 @@ import type {
   Snapshot
 } from '../../../shared/types'
 import { RankBadge } from '../components/RankBadge'
-import { CareerModal, type CareerTarget } from '../components/CareerModal'
 import logoUrl from '../assets/logo.png'
 
 function timeAgo(ms: number): string {
@@ -60,22 +58,12 @@ function FormCell({ s }: { s: LiveStats }): JSX.Element {
   )
 }
 
-function PlayerRow({
-  p,
-  onSelect
-}: {
-  p: LivePlayer
-  onSelect: (t: CareerTarget) => void
-}): JSX.Element {
+function PlayerRow({ p }: { p: LivePlayer }): JSX.Element {
   // Progreso hacia el siguiente rango (Inmortal+ no tiene tope de 100 RR)
   const rrPct = p.rank.tier > 0 ? Math.min(p.rank.rr, 100) : 0
 
   return (
-    <tr
-      className={`player-row clickable ${p.isSelf ? 'self' : ''}`}
-      onClick={() => onSelect({ puuid: p.puuid, name: p.name, tag: p.tag })}
-      title="Ver carrera"
-    >
+    <tr className={`player-row ${p.isSelf ? 'self' : ''}`}>
       <td className="cell-agent">
         {p.agentIcon ? (
           <img
@@ -156,14 +144,12 @@ function TeamTable({
   title,
   players,
   avg,
-  cls,
-  onSelect
+  cls
 }: {
   title: string
   players: LivePlayer[]
   avg: RankInfo | null
   cls: string
-  onSelect: (t: CareerTarget) => void
 }): JSX.Element {
   return (
     <div className={`team-block ${cls}`}>
@@ -193,7 +179,7 @@ function TeamTable({
         </thead>
         <tbody>
           {players.map((p) => (
-            <PlayerRow key={p.puuid} p={p} onSelect={onSelect} />
+            <PlayerRow key={p.puuid} p={p} />
           ))}
         </tbody>
       </table>
@@ -203,7 +189,6 @@ function TeamTable({
 
 export function LivePage({ snapshot }: { snapshot: Snapshot }): JSX.Element {
   const { state, live, menus } = snapshot
-  const [career, setCareer] = useState<CareerTarget | null>(null)
 
   if (state === 'offline') {
     return (
@@ -245,12 +230,7 @@ export function LivePage({ snapshot }: { snapshot: Snapshot }): JSX.Element {
               // Para ti usamos el rango del perfil (incluye RR); las presencias no lo traen
               const rank = m.isSelf ? snapshot.self?.rank ?? m.rank : m.rank
               return (
-                <div
-                  key={m.puuid}
-                  className={`banner clickable ${m.isSelf ? 'self' : ''}`}
-                  onClick={() => setCareer({ puuid: m.puuid, name: m.name, tag: m.tag })}
-                  title="Ver carrera"
-                >
+                <div key={m.puuid} className={`banner ${m.isSelf ? 'self' : ''}`}>
                   {m.card ? (
                     <img className="banner-art" src={m.card} alt="" />
                   ) : (
@@ -288,7 +268,6 @@ export function LivePage({ snapshot }: { snapshot: Snapshot }): JSX.Element {
             )}
           </div>
         )}
-        {career && <CareerModal target={career} onClose={() => setCareer(null)} />}
       </div>
     )
   }
@@ -333,24 +312,16 @@ export function LivePage({ snapshot }: { snapshot: Snapshot }): JSX.Element {
       </header>
 
       <div className="teams">
-        <TeamTable
-          title="Tu equipo"
-          players={allies}
-          avg={live.allyAvg}
-          cls="allies"
-          onSelect={setCareer}
-        />
+        <TeamTable title="Tu equipo" players={allies} avg={live.allyAvg} cls="allies" />
         {enemies.length > 0 && (
           <TeamTable
             title="Equipo enemigo"
             players={enemies}
             avg={live.enemyAvg}
             cls="enemies"
-            onSelect={setCareer}
           />
         )}
       </div>
-      {career && <CareerModal target={career} onClose={() => setCareer(null)} />}
     </div>
   )
 }
