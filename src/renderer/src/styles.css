@@ -576,25 +576,19 @@ body {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  /* El arte de la tarjeta como textura apagada, no a todo color */
+  filter: grayscale(0.7) brightness(0.55) saturate(0.7);
+  opacity: 0.55;
+  transition: filter 0.25s ease, opacity 0.25s ease;
+}
+
+.banner:hover .banner-art {
+  filter: grayscale(0.3) brightness(0.7) saturate(0.9);
+  opacity: 0.75;
 }
 
 .banner-art-empty {
   background: var(--panel-hover);
-}
-
-.banner-level {
-  position: absolute;
-  top: 10px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(10, 10, 11, 0.65);
-  border: 1px solid var(--border-strong);
-  border-radius: 999px;
-  padding: 2px 10px;
-  font-size: 10.5px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  backdrop-filter: blur(6px);
 }
 
 .banner-bottom {
@@ -602,9 +596,17 @@ body {
   left: 0;
   right: 0;
   bottom: 0;
-  padding: 26px 10px 12px;
-  background: linear-gradient(to top, rgba(10, 10, 11, 0.95) 30%, transparent);
+  padding: 34px 10px 14px;
+  background: linear-gradient(to top, rgba(10, 10, 11, 0.97) 40%, transparent);
   text-align: center;
+}
+
+.banner-level {
+  color: var(--text-faint);
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  margin-top: 5px;
+  font-variant-numeric: tabular-nums;
 }
 
 .banner-name {

@@ -238,7 +238,6 @@ export function LivePage({ snapshot }: { snapshot: Snapshot }): JSX.Element {
                   ) : (
                     <div className="banner-art banner-art-empty" />
                   )}
-                  {m.level != null && <div className="banner-level">{m.level}</div>}
                   <div className="banner-bottom">
                     <div className="banner-name">
                       {m.name}
@@ -251,6 +250,7 @@ export function LivePage({ snapshot }: { snapshot: Snapshot }): JSX.Element {
                         <span className="banner-rr">{rank.rr} RR</span>
                       )}
                     </div>
+                    {m.level != null && <div className="banner-level">Nivel {m.level}</div>}
                   </div>
                 </div>
               )
